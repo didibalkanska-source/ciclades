@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Юбилейно Цикладско Плаване — Септември 2026</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Georgia', serif; background: #f5f0e8; color: #2c2c2c; }
+
+    header {
+      position: relative;
+      color: white; text-align: center;
+      overflow: hidden;
+      min-height: 160px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 24px;
+    }
+    .header-bg {
+      position: absolute; inset: 0;
+      background-image: url('cyclades-img/hero-yacht.jpg');
+      background-size: cover; background-position: center 40%;
+      filter: brightness(0.55);
+      z-index: 0;
+    }
+    header > * { position: relative; z-index: 1; }
+    header h1 { font-size: 2.6rem; letter-spacing: 3px; margin-bottom: 10px; text-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+    header p { font-size: 1.05rem; opacity: 0.92; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
+
+    .summary-bar {
+      display: flex; justify-content: center; gap: 40px;
+      background: #2e6da4; padding: 12px; flex-wrap: wrap;
+    }
+    .summary-bar span { color: white; font-size: 0.95rem; opacity: 0.9; }
+    .summary-bar strong { font-size: 1.1rem; }
+
+    /* TABS */
+    .tabs {
+      display: flex; justify-content: center; gap: 0;
+      background: #f5f0e8; padding: 24px 0 0;
+    }
+    .tab-btn {
+      padding: 12px 32px; font-size: 1rem; font-family: 'Georgia', serif;
+      border: 2px solid #2e6da4; background: white; color: #2e6da4;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn:first-child { border-radius: 8px 0 0 8px; }
+    .tab-btn:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+    .tab-btn.active { background: #2e6da4; color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .map-container { width: 100%; height: 480px; border-bottom: 4px solid #2e6da4; }
+
+    .section-title {
+      text-align: center; padding: 32px 16px 16px;
+      font-size: 1.4rem; color: #1a3a5c; letter-spacing: 1px;
+    }
+
+    .route-table { max-width: 980px; margin: 0 auto 40px; padding: 0 16px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+    thead { background: #1a3a5c; color: white; }
+    th { padding: 12px 16px; text-align: left; font-size: 0.88rem; letter-spacing: 0.5px; }
+    td { padding: 11px 16px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f9f7f3; }
+    .night-wild { color: #e67e22; font-weight: bold; }
+    .night-port { color: #2e6da4; }
+    .beach-stop { color: #27ae60; font-size: 0.82rem; font-style: italic; }
+
+    .stops-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 24px; max-width: 1100px; margin: 0 auto 60px; padding: 0 20px;
+    }
+    .stop-card {
+      background: white; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.1); transition: transform 0.2s;
+    }
+    .stop-card:hover { transform: translateY(-4px); }
+    .stop-img {
+      width: 100%; height: 190px; object-fit: cover; display: block;
+      background: linear-gradient(135deg, #d0e8f5, #a8d0e6);
+    }
+    .stop-body { padding: 16px; }
+    .stop-num {
+      display: inline-block; background: #1a3a5c; color: white;
+      border-radius: 50%; width: 26px; height: 26px;
+      text-align: center; line-height: 26px; font-size: 0.8rem; margin-bottom: 8px;
+    }
+    .stop-name { font-size: 1.15rem; font-weight: bold; color: #1a3a5c; margin-bottom: 4px; }
+    .stop-date { font-size: 0.8rem; color: #888; margin-bottom: 4px; }
+    .stop-times {
+      font-size: 0.82rem; color: #555; margin-bottom: 8px;
+      background: #f0f6fb; border-radius: 6px; padding: 5px 8px; display: inline-block;
+    }
+    .stop-anchor {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.78rem; margin-bottom: 10px; font-weight: bold;
+    }
+    .wild { background: #fdebd0; color: #e67e22; }
+    .port { background: #d6eaf8; color: #2e6da4; }
+    .stop-desc { font-size: 0.88rem; line-height: 1.6; color: #444; margin-bottom: 10px; }
+    .stop-sight { font-size: 0.83rem; color: #666; margin-bottom: 8px; }
+    .stop-sight strong { color: #1a3a5c; }
+    .stop-beach {
+      font-size: 0.82rem; color: #27ae60; background: #eafaf1;
+      border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;
+    }
+    .stop-beach strong { color: #1e8449; }
+    .stop-leg {
+      margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;
+      font-size: 0.82rem; color: #888;
+    }
+
+    footer {
+      text-align: center; padding: 24px; font-size: 0.8rem;
+      color: #888; border-top: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-bg"></div>
+  <h1>⛵ Юбилейно Цикладско Плаване</h1>
+  <p>19 – 26 Септември 2026 &nbsp;·&nbsp; 50 ft яхта</p>
+</header>
+
+<div class="summary-bar">
+  <span>🗓 <strong>7 нощи</strong></span>
+  <span>⚓ <strong>~200 морски мили</strong></span>
+  <span>🏝 <strong>7 острова/места</strong></span>
+  <span>🌿 <strong>1 нощ на диво</strong></span>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('v1', this)">Вариант 1 — Тинос</button>
+  <button class="tab-btn" onclick="switchTab('v2', this)">Вариант 2 — Парос</button>
+</div>
+
+<!-- ========== ВАРИАНТ 1 ========== -->
+<div id="v1" class="tab-content active">
+
+  <div id="map1" class="map-container"></div>
+
+  <h2 class="section-title">📋 Маршрут ден по ден — Вариант 1 (Тинос)</h2>
+  <div class="route-table">
+    <table>
+      <thead>
+        <tr><th>Ден</th><th>Дата</th><th>Маршрут</th><th>Мили</th><th>Тръгване</th><th>Пристигане</th><th>Нощувка</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>Съб 19.09</td><td>Пирея → Кеа</td><td>~25 nm</td>
+          <td>~14:30</td><td>~19:30</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>2</td><td>Нед 20.09</td>
+          <td>Кеа → Сирос</td>
+          <td>~38 nm</td><td>~09:00</td><td>~16:30</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Пон 21.09</td>
+          <td>Сирос → <span class="beach-stop">🏊 Деспотико (1ч)</span> → Миконос</td>
+          <td>~24 nm</td><td>~10:00</td><td>~16:00</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>4</td><td>Вт 22.09</td><td>Миконос → Тинос</td>
+          <td>~10 nm</td><td>~11:00</td><td>~13:00</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>5</td><td>Ср 23.09</td>
+          <td>Тинос → <span class="beach-stop">🏊 Фтелиа (1ч)</span> → Серифос</td>
+          <td>~45 nm</td><td>~08:00</td><td>~17:00</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>6</td><td>Чет 24.09</td>
+          <td>Серифос → Китнос (залив Колона)</td>
+          <td>~23 nm</td><td>~10:00</td><td>~14:30</td><td class="night-wild">🌿 Диво</td>
+        </tr>
+        <tr>
+          <td>7</td><td>Пет 25.09</td><td>Китнос → Лаврио</td>
+          <td>~35 nm</td><td>~08:00</td><td>~15:00</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>8</td><td>Съб 26.09</td><td>Лаврио → Пирея</td>
+          <td>~20 nm</td><td>~08:00</td><td>~12:00</td><td>🏁 Предаване</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="section-title">🏝 Спирките — Вариант 1</h2>
+  <div class="stops-grid">
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/piraeus.jpg" alt="Пирея"/>
+      <div class="stop-body">
+        <div class="stop-num">1</div>
+        <div class="stop-name">Пирея</div>
+        <div class="stop-date">Съб 19.09 — тръгване</div>
+        <div class="stop-times">🕑 Тръгване: ~14:30</div>
+        <span class="stop-anchor port">⚓ Начална точка</span>
+        <p class="stop-desc">Главното пристанище на Атина. Тръгвате следобед с курс към Кеа.</p>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/kea.jpg" alt="Кеа"/>
+      <div class="stop-body">
+        <div class="stop-num">2</div>
+        <div class="stop-name">Кеа (Тзия)</div>
+        <div class="stop-date">Съб 19.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~19:30 &nbsp;·&nbsp; Тръгване: ~09:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Vourkari</span>
+        <p class="stop-desc">Най-близкият Цикладски остров до Атина, рядко посещаван от туристи. Зелен, тих, с красиви бухти.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Каменният лъв на Кеа — антична скулптура от 6 в. пр. Хр.</p>
+        <div class="stop-leg">📍 25 nm от Пирея &nbsp;·&nbsp; ~5 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/syros.jpg" alt="Сирос"/>
+      <div class="stop-body">
+        <div class="stop-num">3</div>
+        <div class="stop-name">Сирос — Ермуполи</div>
+        <div class="stop-date">Нед 20.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~16:30 &nbsp;·&nbsp; Тръгване: ~10:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — марина Ермуполи</span>
+        <p class="stop-desc">Столицата на Цикладите — елегантен неокласически град с опера, мраморни улици и оживена набережна.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Театър Аполон (1864) и площад Миаулис.</p>
+        <div class="stop-leg">📍 38 nm от Кеа &nbsp;·&nbsp; ~7.5 ч &nbsp;·&nbsp; тръгнете в 09:00</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/mykonos.jpg" alt="Миконос"/>
+      <div class="stop-body">
+        <div class="stop-num">4</div>
+        <div class="stop-name">Миконос</div>
+        <div class="stop-date">Пон 21.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~16:00 &nbsp;·&nbsp; Тръгване: ~11:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Нова марина</span>
+        <p class="stop-desc">Бели кубични сгради, вятърни мелници, космополитна атмосфера. В края на септември тълпите намаляват.</p>
+        <div class="stop-beach">🏊 <strong>Плажна спирка по пътя от Сирос:</strong> Деспотико — необитаем остров с античен храм, ~1 час.</div>
+        <p class="stop-sight"><strong>Забележителност:</strong> Вятърните мелници и Маленка Венеция.</p>
+        <div class="stop-leg">📍 24 nm от Сирос &nbsp;·&nbsp; ~6 ч общо &nbsp;·&nbsp; ⚠️ Нужна е резервация!</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/tinos.jpg" alt="Тинос"/>
+      <div class="stop-body">
+        <div class="stop-num">5</div>
+        <div class="stop-name">Тинос</div>
+        <div class="stop-date">Вт 22.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~13:00 &nbsp;·&nbsp; Тръгване: ~08:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Тинос Town</span>
+        <p class="stop-desc">Свещеният остров на Гърция — автентичен, спокоен, само 10 мили от Миконос. Следобедът свободен за разходка.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Църквата Панагия Евангелистрия.</p>
+        <div class="stop-leg">📍 10 nm от Миконос &nbsp;·&nbsp; ~2 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/serifos.jpg" alt="Серифос"/>
+      <div class="stop-body">
+        <div class="stop-num">6</div>
+        <div class="stop-name">Серифос</div>
+        <div class="stop-date">Ср 23.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~17:00 &nbsp;·&nbsp; Тръгване: ~10:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Ливади</span>
+        <p class="stop-desc">Див и автентичен остров с бялата Хора на скалата. Един от най-недооценените острови в Цикладите.</p>
+        <div class="stop-beach">🏊 <strong>Плажна спирка по пътя от Тинос:</strong> Залив Фтелиа — пясъчен, спокоен, ~1 час.</div>
+        <p class="stop-sight"><strong>Забележителност:</strong> Хора на Серифос — средновековна Хора с панорамна гледка.</p>
+        <div class="stop-leg">📍 45 nm от Тинос (+ спирка) &nbsp;·&nbsp; ~9 ч &nbsp;·&nbsp; тръгнете в 08:00</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/kythnos.jpg" alt="Китнос"/>
+      <div class="stop-body">
+        <div class="stop-num">7</div>
+        <div class="stop-name">Китнос — залив Колона</div>
+        <div class="stop-date">Чет 24.09 — нощ на диво 🌿</div>
+        <div class="stop-times">🕑 Пристигане: ~14:30 &nbsp;·&nbsp; Тръгване: ~08:00</div>
+        <span class="stop-anchor wild">🌿 Диво — залив Колона</span>
+        <p class="stop-desc">Залив Колона е смятан за един от най-красивите в Цикладите — два залива, свързани с тясна пясъчна ивица. Защитен от всички посоки, идеален за котвене.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Двойният залив и нощта под звездите далеч от пристанища.</p>
+        <div class="stop-leg">📍 23 nm от Серифос &nbsp;·&nbsp; ~4.5 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/lavrio.jpg" alt="Лаврио"/>
+      <div class="stop-body">
+        <div class="stop-num">8</div>
+        <div class="stop-name">Лаврио</div>
+        <div class="stop-date">Пет 25.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~15:00 &nbsp;·&nbsp; Тръгване: ~08:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — марина Лаврио</span>
+        <p class="stop-desc">Последна нощ на материка преди предаването. Спокоен ден — само ~35 nm от Китнос.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Храмът на Посейдон на нос Сунион — само ~10 nm, може да се спре по пътя!</p>
+        <div class="stop-leg">📍 35 nm от Китнос &nbsp;·&nbsp; ~7 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/piraeus.jpg" alt="Пирея"/>
+      <div class="stop-body">
+        <div class="stop-num">9</div>
+        <div class="stop-name">Пирея</div>
+        <div class="stop-date">Съб 26.09 — предаване 🏁</div>
+        <div class="stop-times">🕑 Тръгване: ~08:00 &nbsp;·&nbsp; Пристигане: ~12:00</div>
+        <span class="stop-anchor port">🏁 Краен пункт</span>
+        <p class="stop-desc">Връщате се след 7 незабравими нощи. Предаване преди обяд.</p>
+        <p class="stop-sight"><strong>Съвет:</strong> Резервирайте обяд в Атина — заслужавате го!</p>
+        <div class="stop-leg">📍 20 nm от Лаврио &nbsp;·&nbsp; ~4 ч</div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- end v1 -->
+
+<!-- ========== ВАРИАНТ 2 ========== -->
+<div id="v2" class="tab-content">
+
+  <div id="map2" class="map-container"></div>
+
+  <h2 class="section-title">📋 Маршрут ден по ден — Вариант 2 (Парос)</h2>
+  <div class="route-table">
+    <table>
+      <thead>
+        <tr><th>Ден</th><th>Дата</th><th>Маршрут</th><th>Мили</th><th>Тръгване</th><th>Пристигане</th><th>Нощувка</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>Съб 19.09</td><td>Пирея → Кеа</td><td>~25 nm</td>
+          <td>~14:30</td><td>~19:30</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>2</td><td>Нед 20.09</td><td>Кеа → Сирос</td>
+          <td>~38 nm</td><td>~09:00</td><td>~16:30</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Пон 21.09</td>
+          <td>Сирос → <span class="beach-stop">🏊 Деспотико (1ч)</span> → Миконос</td>
+          <td>~24 nm</td><td>~10:00</td><td>~16:00</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>4</td><td>Вт 22.09</td>
+          <td>Миконос → <span class="beach-stop">🏊 Наксос залив (1ч)</span> → Парос</td>
+          <td>~37 nm</td><td>~09:00</td><td>~16:30</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>5</td><td>Ср 23.09</td>
+          <td>Парос → Серифос</td>
+          <td>~32 nm</td><td>~09:00</td><td>~15:30</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>6</td><td>Чет 24.09</td>
+          <td>Серифос → Китнос (залив Колона)</td>
+          <td>~23 nm</td><td>~10:00</td><td>~14:30</td><td class="night-wild">🌿 Диво</td>
+        </tr>
+        <tr>
+          <td>7</td><td>Пет 25.09</td><td>Китнос → Лаврио</td>
+          <td>~35 nm</td><td>~08:00</td><td>~15:00</td><td class="night-port">⚓ Пристанище</td>
+        </tr>
+        <tr>
+          <td>8</td><td>Съб 26.09</td><td>Лаврио → Пирея</td>
+          <td>~20 nm</td><td>~08:00</td><td>~12:00</td><td>🏁 Предаване</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="section-title">🏝 Спирките — Вариант 2</h2>
+  <div class="stops-grid">
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/piraeus.jpg" alt="Пирея"/>
+      <div class="stop-body">
+        <div class="stop-num">1</div>
+        <div class="stop-name">Пирея</div>
+        <div class="stop-date">Съб 19.09 — тръгване</div>
+        <div class="stop-times">🕑 Тръгване: ~14:30</div>
+        <span class="stop-anchor port">⚓ Начална точка</span>
+        <p class="stop-desc">Главното пристанище на Атина. Тръгвате следобед с курс към Кеа.</p>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/kea.jpg" alt="Кеа"/>
+      <div class="stop-body">
+        <div class="stop-num">2</div>
+        <div class="stop-name">Кеа (Тзия)</div>
+        <div class="stop-date">Съб 19.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~19:30 &nbsp;·&nbsp; Тръгване: ~09:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Vourkari</span>
+        <p class="stop-desc">Най-близкият Цикладски остров до Атина, рядко посещаван от туристи. Зелен, тих, с красиви бухти.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Каменният лъв на Кеа — антична скулптура от 6 в. пр. Хр.</p>
+        <div class="stop-leg">📍 25 nm от Пирея &nbsp;·&nbsp; ~5 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/syros.jpg" alt="Сирос"/>
+      <div class="stop-body">
+        <div class="stop-num">3</div>
+        <div class="stop-name">Сирос — Ермуполи</div>
+        <div class="stop-date">Нед 20.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~16:30 &nbsp;·&nbsp; Тръгване: ~10:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — марина Ермуполи</span>
+        <p class="stop-desc">Столицата на Цикладите — елегантен неокласически град с опера и оживена набережна.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Театър Аполон (1864) и площад Миаулис.</p>
+        <div class="stop-leg">📍 38 nm от Кеа &nbsp;·&nbsp; ~7.5 ч &nbsp;·&nbsp; тръгнете в 09:00</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/mykonos.jpg" alt="Миконос"/>
+      <div class="stop-body">
+        <div class="stop-num">4</div>
+        <div class="stop-name">Миконос</div>
+        <div class="stop-date">Пон 21.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~16:00 &nbsp;·&nbsp; Тръгване: ~09:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Нова марина</span>
+        <p class="stop-desc">Бели кубични сгради, вятърни мелници, космополитна атмосфера.</p>
+        <div class="stop-beach">🏊 <strong>Плажна спирка по пътя от Сирос:</strong> Деспотико — необитаем остров с античен храм, ~1 час.</div>
+        <p class="stop-sight"><strong>Забележителност:</strong> Вятърните мелници и Маленка Венеция.</p>
+        <div class="stop-leg">📍 24 nm от Сирос &nbsp;·&nbsp; ~6 ч общо &nbsp;·&nbsp; ⚠️ Нужна е резервация!</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/paros.jpg" alt="Парос"/>
+      <div class="stop-body">
+        <div class="stop-num">5</div>
+        <div class="stop-name">Парос</div>
+        <div class="stop-date">Вт 22.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~16:30 &nbsp;·&nbsp; Тръгване: ~09:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Науса или Парикия</span>
+        <p class="stop-desc">Един от най-красивите острови в Цикладите — венецианска крепост, кристални бухти, отлична кухня. По-автентичен от Миконос.</p>
+        <div class="stop-beach">🏊 <strong>Плажна спирка по пътя от Миконос:</strong> Северен залив на Наксос — изумрудена вода, ~1 час.</div>
+        <p class="stop-sight"><strong>Забележителност:</strong> Науса — рибарско селище с венецианска крепост в морето.</p>
+        <div class="stop-leg">📍 37 nm от Миконос (+ спирка) &nbsp;·&nbsp; ~7.5 ч общо</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/serifos.jpg" alt="Серифос"/>
+      <div class="stop-body">
+        <div class="stop-num">6</div>
+        <div class="stop-name">Серифос</div>
+        <div class="stop-date">Ср 23.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~15:30 &nbsp;·&nbsp; Тръгване: ~10:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — Ливади</span>
+        <p class="stop-desc">Див и автентичен остров с бялата Хора на скалата. Един от най-недооценените в Цикладите.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Хора на Серифос — средновековна Хора с панорамна гледка.</p>
+        <div class="stop-leg">📍 32 nm от Парос &nbsp;·&nbsp; ~6.5 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/kythnos.jpg" alt="Китнос"/>
+      <div class="stop-body">
+        <div class="stop-num">7</div>
+        <div class="stop-name">Китнос — залив Колона</div>
+        <div class="stop-date">Чет 24.09 — нощ на диво 🌿</div>
+        <div class="stop-times">🕑 Пристигане: ~14:30 &nbsp;·&nbsp; Тръгване: ~08:00</div>
+        <span class="stop-anchor wild">🌿 Диво — залив Колона</span>
+        <p class="stop-desc">Два залива, свързани с тясна пясъчна ивица — смятан за един от най-красивите заливи в Цикладите. Защитен, тих, перфектен за нощ на котва.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Двойният залив и нощта под звездите.</p>
+        <div class="stop-leg">📍 23 nm от Серифос &nbsp;·&nbsp; ~4.5 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/lavrio.jpg" alt="Лаврио"/>
+      <div class="stop-body">
+        <div class="stop-num">8</div>
+        <div class="stop-name">Лаврио</div>
+        <div class="stop-date">Пет 25.09 — нощувка</div>
+        <div class="stop-times">🕑 Пристигане: ~15:00 &nbsp;·&nbsp; Тръгване: ~08:00</div>
+        <span class="stop-anchor port">⚓ Пристанище — марина Лаврио</span>
+        <p class="stop-desc">Последна нощ на материка. Спокоен ден — само ~35 nm от Китнос.</p>
+        <p class="stop-sight"><strong>Забележителност:</strong> Храмът на Посейдон на нос Сунион — само ~10 nm по пътя!</p>
+        <div class="stop-leg">📍 35 nm от Китнос &nbsp;·&nbsp; ~7 ч</div>
+      </div>
+    </div>
+
+    <div class="stop-card">
+      <img class="stop-img" src="cyclades-img/piraeus.jpg" alt="Пирея"/>
+      <div class="stop-body">
+        <div class="stop-num">9</div>
+        <div class="stop-name">Пирея</div>
+        <div class="stop-date">Съб 26.09 — предаване 🏁</div>
+        <div class="stop-times">🕑 Тръгване: ~08:00 &nbsp;·&nbsp; Пристигане: ~12:00</div>
+        <span class="stop-anchor port">🏁 Краен пункт</span>
+        <p class="stop-desc">Връщате се след 7 незабравими нощи. Предаване преди обяд.</p>
+        <p class="stop-sight"><strong>Съвет:</strong> Резервирайте обяд в Атина — заслужавате го!</p>
+        <div class="stop-leg">📍 20 nm от Лаврио &nbsp;·&nbsp; ~4 ч</div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- end v2 -->
+
+<footer>
+  Маршрут планиран за 50 ft яхта &nbsp;·&nbsp; Средна скорост ~5 kn &nbsp;·&nbsp; Септември 2026<br>
+  Всички разстояния и часове са приблизителни. Финалният маршрут се определя от капитана и метеорологичните условия.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'v1' && !window.map1init) { initMap1(); window.map1init = true; }
+  if (id === 'v2' && !window.map2init) { initMap2(); window.map2init = true; }
+}
+
+function buildMap(mapId, stops) {
+  const m = L.map(mapId, { zoomControl: true }).setView([37.5, 24.5], 8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 16
+  }).addTo(m);
+  L.polyline(stops.map(s => s.coords), { color: '#2e6da4', weight: 3, dashArray: '8,6', opacity: 0.85 }).addTo(m);
+  const colors = { '🌿': '#e67e22', '⚓': '#2e6da4', '🏁': '#1a3a5c' };
+  stops.forEach((stop, i) => {
+    if (i === stops.length - 1 && stop.coords[0] === stops[0].coords[0]) return;
+    const color = colors[stop.icon] || '#2e6da4';
+    L.circleMarker(stop.coords, { radius: 9, fillColor: color, color: 'white', weight: 2, fillOpacity: 0.95 })
+      .addTo(m)
+      .bindPopup(`<strong>${stop.name}</strong><br><small>${stop.day}</small>${stop.leg ? '<br><small style="color:#888">'+stop.leg+'</small>' : ''}`);
+    L.marker(stop.coords, { interactive: false, icon: L.divIcon({
+      className: '',
+      html: `<div style="background:white;border:2px solid ${color};border-radius:4px;padding:2px 6px;font-size:11px;font-weight:bold;color:${color};white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.2);margin-top:12px;margin-left:8px;">${stop.name}</div>`,
+      iconAnchor: [0,0]
+    })}).addTo(m);
+  });
+}
+
+function initMap1() {
+  buildMap('map1', [
+    { name: "Пирея", coords: [37.942, 23.646], day: "Съб 19.09 — тръгване ~14:30", icon: "🏁", leg: "" },
+    { name: "Кеа", coords: [37.648, 24.337], day: "Съб 19.09 — ~19:30", icon: "⚓", leg: "25 nm · ~5 ч" },
+    { name: "Сирос", coords: [37.444, 24.934], day: "Нед 20.09 — ~16:30", icon: "⚓", leg: "38 nm · ~7.5 ч" },
+    { name: "Миконос", coords: [37.452, 25.328], day: "Пон 21.09 — ~16:00", icon: "⚓", leg: "24 nm · ~6 ч" },
+    { name: "Тинос", coords: [37.548, 25.166], day: "Вт 22.09 — ~13:00", icon: "⚓", leg: "10 nm · ~2 ч" },
+    { name: "Серифос", coords: [37.148, 24.489], day: "Ср 23.09 — ~17:00", icon: "⚓", leg: "45 nm · ~9 ч" },
+    { name: "Китнос (Колона)", coords: [37.386, 24.418], day: "Чет 24.09 — ДИВО 🌿", icon: "🌿", leg: "23 nm · ~4.5 ч" },
+    { name: "Лаврио", coords: [37.713, 24.059], day: "Пет 25.09 — ~15:00", icon: "⚓", leg: "35 nm · ~7 ч" },
+    { name: "Пирея", coords: [37.942, 23.646], day: "Съб 26.09 — предаване 🏁", icon: "🏁", leg: "20 nm · ~4 ч" },
+  ]);
+}
+
+function initMap2() {
+  buildMap('map2', [
+    { name: "Пирея", coords: [37.942, 23.646], day: "Съб 19.09 — тръгване ~14:30", icon: "🏁", leg: "" },
+    { name: "Кеа", coords: [37.648, 24.337], day: "Съб 19.09 — ~19:30", icon: "⚓", leg: "25 nm · ~5 ч" },
+    { name: "Сирос", coords: [37.444, 24.934], day: "Нед 20.09 — ~16:30", icon: "⚓", leg: "38 nm · ~7.5 ч" },
+    { name: "Миконос", coords: [37.452, 25.328], day: "Пон 21.09 — ~16:00", icon: "⚓", leg: "24 nm · ~6 ч" },
+    { name: "Парос", coords: [37.085, 25.152], day: "Вт 22.09 — ~16:30", icon: "⚓", leg: "37 nm · ~7.5 ч" },
+    { name: "Серифос", coords: [37.148, 24.489], day: "Ср 23.09 — ~15:30", icon: "⚓", leg: "32 nm · ~6.5 ч" },
+    { name: "Китнос (Колона)", coords: [37.386, 24.418], day: "Чет 24.09 — ДИВО 🌿", icon: "🌿", leg: "23 nm · ~4.5 ч" },
+    { name: "Лаврио", coords: [37.713, 24.059], day: "Пет 25.09 — ~15:00", icon: "⚓", leg: "35 nm · ~7 ч" },
+    { name: "Пирея", coords: [37.942, 23.646], day: "Съб 26.09 — предаване 🏁", icon: "🏁", leg: "20 nm · ~4 ч" },
+  ]);
+}
+
+// init first tab map
+window.map1init = false;
+window.map2init = false;
+initMap1();
+window.map1init = true;
+</script>
+</body>
+</html>
